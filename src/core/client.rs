@@ -192,8 +192,8 @@ impl WhatapClient {
         Ok(value)
     }
 
-    /// POST to yard API with web session cookies (for MXQL queries)
-    pub async fn yard_post(&self, body: &serde_json::Value) -> Result<serde_json::Value> {
+    /// Build web session cookie string (JSESSIONID + wa)
+    fn web_cookie(&self) -> Result<String> {
         let creds = self
             .creds
             .as_ref()
@@ -205,15 +205,52 @@ impl WhatapClient {
 
         if session.jsessionid.is_empty() {
             bail!(
-                "Web session required for MXQL. Re-login with: whatap login -e <email> -p <password>"
+                "Web session required. Re-login with: whatap login -e <email> -p <password>"
             );
         }
 
-        let url = format!("{}/yard/api/flush", self.server());
         let mut cookie = format!("JSESSIONID={}", session.jsessionid);
         if !session.wa_cookie.is_empty() {
             cookie.push_str(&format!("; wa={}", session.wa_cookie));
         }
+        Ok(cookie)
+    }
+
+    /// GET request with web session cookies
+    pub async fn web_get(&self, path: &str) -> Result<serde_json::Value> {
+        let cookie = self.web_cookie()?;
+        let url = format!("{}{}", self.server(), path);
+
+        let resp = self
+            .http
+            .get(&url)
+            .header(COOKIE, &cookie)
+            .header(USER_AGENT, "WhatapCLI/0.1.0")
+            .send()
+            .await
+            .with_context(|| format!("Request failed: GET {}", url))?;
+
+        let status = resp.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED
+            || status == reqwest::StatusCode::FORBIDDEN
+        {
+            bail!("Web session expired. Re-login with: whatap login -e <email> -p <password>");
+        }
+
+        let body_text = resp.text().await?;
+        if !status.is_success() {
+            bail!("API error ({}): {}", status, body_text);
+        }
+
+        let value: serde_json::Value =
+            serde_json::from_str(&body_text).context("Failed to parse response")?;
+        Ok(value)
+    }
+
+    /// POST to yard API with web session cookies
+    pub async fn yard_post(&self, body: &serde_json::Value) -> Result<serde_json::Value> {
+        let cookie = self.web_cookie()?;
+        let url = format!("{}/yard/api/flush", self.server());
 
         let resp = self
             .http

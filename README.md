@@ -8,6 +8,7 @@ A command-line interface for the [WhatAp](https://whatap.io) monitoring platform
 - **Project Management**: List and inspect monitoring projects
 - **MXQL Queries**: Execute MXQL queries via yard API with multiple input modes
 - **Symbol Upload**: Upload sourcemaps, ProGuard mappings, and dSYM files
+- **Alert Management**: Create, list, enable/disable, export/import metric alerts
 - **MCP-Ready**: Designed for integration with MCP servers for AI-driven query generation
 
 ## Installation
@@ -93,6 +94,34 @@ whatap mxql --pcode 45452 --stime 1769000000000 --etime 1772100000000 --limit 50
 | `-f, --file <PATH>` | Read MXQL from file |
 | `--input-json <JSON>` | Full query params as JSON (for MCP) |
 | `--json` | Output as JSON |
+
+### Alert Management
+
+```bash
+# List alerts
+whatap alert list --pcode 12345
+
+# Create alert with conditions
+whatap alert create --pcode 12345 \
+  --title "High CPU" --category app_counter \
+  --warning "cpu > 80" --critical "cpu > 95" \
+  --message 'CPU: ${cpu}%' --stateful
+
+# Create alert from JSON (MCP integration)
+whatap alert create --pcode 12345 --input-json '{...}'
+
+# Enable / Disable
+whatap alert enable --pcode 12345 --id <event_id>
+whatap alert disable --pcode 12345 --id <event_id>
+
+# Delete
+whatap alert delete --pcode 12345 --id <event_id>
+
+# Export / Import (backup & restore)
+whatap alert export --pcode 12345 -f alerts.json
+whatap alert import --pcode 12345 -f alerts.json
+whatap alert import --pcode 12345 -f alerts.json --overwrite
+```
 
 ### Symbol Management
 

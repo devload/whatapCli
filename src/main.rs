@@ -107,6 +107,12 @@ enum Commands {
         category: Option<String>,
     },
 
+    /// Manage metric alerts
+    Alert {
+        #[command(subcommand)]
+        action: AlertAction,
+    },
+
     /// Manage browser sourcemaps
     Sourcemaps {
         #[command(subcommand)]
@@ -254,6 +260,112 @@ enum DsymAction {
     },
 }
 
+#[derive(Subcommand)]
+enum AlertAction {
+    /// List metric alerts
+    List {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+    },
+    /// Create a metric alert
+    Create {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Alert title
+        #[arg(long)]
+        title: Option<String>,
+        /// Metric category (e.g. app_counter, server_cpu)
+        #[arg(long)]
+        category: Option<String>,
+        /// Warning condition rule (e.g. "cpu > 80")
+        #[arg(long)]
+        warning: Option<String>,
+        /// Critical condition rule (e.g. "cpu > 95")
+        #[arg(long)]
+        critical: Option<String>,
+        /// Info condition rule
+        #[arg(long)]
+        info: Option<String>,
+        /// Alert message template
+        #[arg(long)]
+        message: Option<String>,
+        /// Track alert resolution
+        #[arg(long)]
+        stateful: bool,
+        /// Filter expression
+        #[arg(long)]
+        select: Option<String>,
+        /// Repeat count before alerting
+        #[arg(long, default_value = "1")]
+        repeat_count: u64,
+        /// Duration between repeats (seconds)
+        #[arg(long, default_value = "0")]
+        repeat_duration: u64,
+        /// Silent period after alert (seconds)
+        #[arg(long, default_value = "0")]
+        silent: u64,
+        /// Full alert as JSON (for MCP integration)
+        #[arg(long)]
+        input_json: Option<String>,
+    },
+    /// Delete a metric alert
+    Delete {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Event ID to delete
+        #[arg(long)]
+        id: String,
+        /// Alert category
+        #[arg(long)]
+        category: Option<String>,
+        /// Skip confirmation prompt
+        #[arg(long)]
+        confirm: bool,
+    },
+    /// Enable an alert
+    Enable {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Event ID
+        #[arg(long)]
+        id: String,
+    },
+    /// Disable an alert
+    Disable {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Event ID
+        #[arg(long)]
+        id: String,
+    },
+    /// Export alerts to JSON
+    Export {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Output file (stdout if not specified)
+        #[arg(short, long)]
+        file: Option<String>,
+    },
+    /// Import alerts from JSON file
+    Import {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// JSON file containing alert definitions
+        #[arg(short, long)]
+        file: String,
+        /// Overwrite existing alerts
+        #[arg(long)]
+        overwrite: bool,
+    },
+}
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -324,6 +436,70 @@ async fn main() {
             )
             .await
         }
+
+        Commands::Alert { action } => match action {
+            AlertAction::List { pcode } => {
+                cli::commands::alert::list(&config, pcode).await
+            }
+            AlertAction::Create {
+                pcode,
+                title,
+                category,
+                warning,
+                critical,
+                info,
+                message,
+                stateful,
+                select,
+                repeat_count,
+                repeat_duration,
+                silent,
+                input_json,
+            } => {
+                cli::commands::alert::create(
+                    &config,
+                    pcode,
+                    title,
+                    category,
+                    warning,
+                    critical,
+                    info,
+                    message,
+                    stateful,
+                    select,
+                    repeat_count,
+                    repeat_duration,
+                    silent,
+                    input_json,
+                )
+                .await
+            }
+            AlertAction::Delete {
+                pcode,
+                id,
+                category,
+                confirm,
+            } => {
+                cli::commands::alert::delete(&config, pcode, &id, category, confirm)
+                    .await
+            }
+            AlertAction::Enable { pcode, id } => {
+                cli::commands::alert::toggle(&config, pcode, &id, true).await
+            }
+            AlertAction::Disable { pcode, id } => {
+                cli::commands::alert::toggle(&config, pcode, &id, false).await
+            }
+            AlertAction::Export { pcode, file } => {
+                cli::commands::alert::export(&config, pcode, file).await
+            }
+            AlertAction::Import {
+                pcode,
+                file,
+                overwrite,
+            } => {
+                cli::commands::alert::import(&config, pcode, &file, overwrite).await
+            }
+        },
 
         Commands::Sourcemaps { action } => match action {
             SourcemapAction::Upload {

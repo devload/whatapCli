@@ -1,3 +1,4 @@
+pub mod alert;
 pub mod dsym;
 pub mod info;
 pub mod login;
