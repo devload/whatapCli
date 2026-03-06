@@ -1,0 +1,6 @@
+/target
+Cargo.lock
+.whataprc.yml
+*.swp
+*.swo
+.DS_Store
