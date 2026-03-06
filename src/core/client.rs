@@ -247,6 +247,42 @@ impl WhatapClient {
         Ok(value)
     }
 
+    /// POST JSON with web session cookies
+    pub async fn web_post_json(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let cookie = self.web_cookie()?;
+        let url = format!("{}{}", self.server(), path);
+
+        let resp = self
+            .http
+            .post(&url)
+            .header(COOKIE, &cookie)
+            .header(USER_AGENT, "WhatapCLI/0.1.0")
+            .json(body)
+            .send()
+            .await
+            .with_context(|| format!("Request failed: POST {}", url))?;
+
+        let status = resp.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED
+            || status == reqwest::StatusCode::FORBIDDEN
+        {
+            bail!("Web session expired. Re-login with: whatap login -e <email> -p <password>");
+        }
+
+        let body_text = resp.text().await?;
+        if !status.is_success() {
+            bail!("API error ({}): {}", status, body_text);
+        }
+
+        let value: serde_json::Value =
+            serde_json::from_str(&body_text).context("Failed to parse response")?;
+        Ok(value)
+    }
+
     /// POST to yard API with web session cookies
     pub async fn yard_post(&self, body: &serde_json::Value) -> Result<serde_json::Value> {
         let cookie = self.web_cookie()?;

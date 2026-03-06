@@ -74,6 +74,13 @@ enum Commands {
         filter: Option<String>,
     },
 
+    /// Create a new monitoring project
+    #[command(name = "project")]
+    Project {
+        #[command(subcommand)]
+        action: ProjectAction,
+    },
+
     /// Show project details
     Info {
         /// Project code
@@ -261,6 +268,36 @@ enum DsymAction {
 }
 
 #[derive(Subcommand)]
+enum ProjectAction {
+    /// List accessible projects
+    List {
+        /// Filter by platform or name
+        #[arg(long)]
+        filter: Option<String>,
+    },
+    /// Create a new monitoring project
+    Create {
+        /// Project name
+        #[arg(long)]
+        name: String,
+        /// Platform type (java, nodejs, python, php, dotnet, go, kubernetes, server, browser, android, ios)
+        #[arg(long)]
+        platform: String,
+        /// Group ID to assign the project to
+        #[arg(long)]
+        group_id: Option<i64>,
+    },
+    /// Delete a project
+    Delete {
+        /// Project code to delete
+        pcode: i64,
+        /// Skip confirmation prompt
+        #[arg(long)]
+        confirm: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum AlertAction {
     /// List metric alerts
     List {
@@ -408,6 +445,22 @@ async fn main() {
         Commands::Projects { filter } => {
             cli::commands::projects::run(&config, filter).await
         }
+
+        Commands::Project { action } => match action {
+            ProjectAction::List { filter } => {
+                cli::commands::project::list(&config, filter).await
+            }
+            ProjectAction::Create {
+                name,
+                platform,
+                group_id,
+            } => {
+                cli::commands::project::create(&config, name, platform, group_id).await
+            }
+            ProjectAction::Delete { pcode, confirm } => {
+                cli::commands::project::delete(&config, pcode, confirm).await
+            }
+        },
 
         Commands::Info { pcode } => {
             cli::commands::info::run(&config, pcode).await
