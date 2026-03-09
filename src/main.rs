@@ -136,6 +136,12 @@ enum Commands {
         action: LogAction,
     },
 
+    /// Browser step data analysis (resources, AJAX, errors, page load)
+    Step {
+        #[command(subcommand)]
+        action: StepAction,
+    },
+
     /// Manage metric alerts
     Alert {
         #[command(subcommand)]
@@ -393,6 +399,127 @@ enum LogAction {
 }
 
 #[derive(Subcommand)]
+enum StepAction {
+    /// Query browser resource loading data (images, scripts, CSS, fonts)
+    Resources {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Filter by page URL
+        #[arg(long)]
+        page: Option<String>,
+        /// Filter by resource type (script, image, link, font, xhr, fetch)
+        #[arg(long, name = "type")]
+        resource_type: Option<String>,
+        /// Show only slow resources (duration > threshold ms)
+        #[arg(long)]
+        slow: Option<u64>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback (e.g. "1h", "30m", "1d")
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Max results
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        /// Output raw JSON
+        #[arg(long)]
+        raw: bool,
+    },
+    /// Query AJAX/API request data
+    Ajax {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Filter by page URL
+        #[arg(long)]
+        page: Option<String>,
+        /// Show only requests with errors
+        #[arg(long)]
+        errors: bool,
+        /// Show only slow requests (time > threshold ms)
+        #[arg(long)]
+        slow: Option<u64>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Max results
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        /// Output raw JSON
+        #[arg(long)]
+        raw: bool,
+    },
+    /// Query browser JavaScript errors
+    Errors {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Filter by page URL
+        #[arg(long)]
+        page: Option<String>,
+        /// Filter by error type (TypeError, ReferenceError, SyntaxError, etc.)
+        #[arg(long, name = "type")]
+        error_type: Option<String>,
+        /// Filter by browser
+        #[arg(long)]
+        browser: Option<String>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Max results
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        /// Output raw JSON
+        #[arg(long)]
+        raw: bool,
+    },
+    /// Query page load timing breakdown (waterfall)
+    Pageload {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Filter by page URL
+        #[arg(long)]
+        page: Option<String>,
+        /// Show only slow pages (loadTime > threshold ms)
+        #[arg(long)]
+        slow: Option<u64>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Max results
+        #[arg(long, default_value = "10")]
+        limit: u64,
+        /// Output raw JSON
+        #[arg(long)]
+        raw: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum AlertAction {
     /// List metric alerts
     List {
@@ -630,6 +757,37 @@ async fn main() {
             }
             LogAction::Categories => {
                 cli::commands::log::categories(&config).await
+            }
+        },
+
+        Commands::Step { action } => match action {
+            StepAction::Resources {
+                pcode, page, resource_type, slow, stime, etime, duration, limit, raw,
+            } => {
+                cli::commands::step::resources(
+                    &config, pcode, page, resource_type, slow, stime, etime, duration, limit, raw,
+                ).await
+            }
+            StepAction::Ajax {
+                pcode, page, errors, slow, stime, etime, duration, limit, raw,
+            } => {
+                cli::commands::step::ajax(
+                    &config, pcode, page, errors, slow, stime, etime, duration, limit, raw,
+                ).await
+            }
+            StepAction::Errors {
+                pcode, page, error_type, browser, stime, etime, duration, limit, raw,
+            } => {
+                cli::commands::step::errors(
+                    &config, pcode, page, error_type, browser, stime, etime, duration, limit, raw,
+                ).await
+            }
+            StepAction::Pageload {
+                pcode, page, slow, stime, etime, duration, limit, raw,
+            } => {
+                cli::commands::step::pageload(
+                    &config, pcode, page, slow, stime, etime, duration, limit, raw,
+                ).await
             }
         },
 

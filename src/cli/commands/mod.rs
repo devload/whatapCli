@@ -11,4 +11,5 @@ pub mod projects;
 pub mod sourcemaps;
 pub mod spot;
 pub mod stat;
+pub mod step;
 pub mod whoami;
