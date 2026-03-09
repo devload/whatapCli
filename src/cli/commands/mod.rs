@@ -1,6 +1,7 @@
 pub mod alert;
 pub mod dsym;
 pub mod info;
+pub mod log;
 pub mod login;
 pub mod logout;
 pub mod mxql;
@@ -9,4 +10,5 @@ pub mod project;
 pub mod projects;
 pub mod sourcemaps;
 pub mod spot;
+pub mod stat;
 pub mod whoami;

@@ -124,6 +124,18 @@ enum Commands {
         keys: Option<String>,
     },
 
+    /// Query time-series metric statistics
+    Stat {
+        #[command(subcommand)]
+        action: StatAction,
+    },
+
+    /// Search application logs
+    Log {
+        #[command(subcommand)]
+        action: LogAction,
+    },
+
     /// Manage metric alerts
     Alert {
         #[command(subcommand)]
@@ -305,6 +317,79 @@ enum ProjectAction {
         #[arg(long)]
         confirm: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum StatAction {
+    /// Query time-series data for a specific metric
+    Query {
+        /// Metric category (e.g. app_counter, server_cpu, rum_page_load_each_page)
+        #[arg(long)]
+        category: String,
+        /// Metric field (e.g. tps, resp_time, cpu, load_time)
+        #[arg(long)]
+        field: String,
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback (e.g. "5m", "1h", "30s", "1d")
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Output raw JSON response
+        #[arg(long)]
+        raw: bool,
+    },
+    /// List available stat categories and fields
+    Categories {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+    },
+}
+
+#[derive(Subcommand)]
+enum LogAction {
+    /// Search log entries
+    Search {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Search keyword (filters message field)
+        #[arg(short, long)]
+        keyword: Option<String>,
+        /// Log level filter (ERROR, WARN, INFO, DEBUG)
+        #[arg(short, long)]
+        level: Option<String>,
+        /// Log category (default: app_log)
+        #[arg(long)]
+        category: Option<String>,
+        /// Custom SELECT fields (comma-separated)
+        #[arg(long)]
+        fields: Option<String>,
+        /// Start time (epoch ms)
+        #[arg(long)]
+        stime: Option<u64>,
+        /// End time (epoch ms)
+        #[arg(long)]
+        etime: Option<u64>,
+        /// Duration lookback (e.g. "5m", "1h", "30s", "1d")
+        #[arg(short, long)]
+        duration: Option<String>,
+        /// Max results
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        /// Output raw JSON response
+        #[arg(long)]
+        raw: bool,
+    },
+    /// List available log categories
+    Categories,
 }
 
 #[derive(Subcommand)]
@@ -503,6 +588,50 @@ async fn main() {
         Commands::Spot { pcode, keys } => {
             cli::commands::spot::run(&config, pcode, keys).await
         }
+
+        Commands::Stat { action } => match action {
+            StatAction::Query {
+                category,
+                field,
+                pcode,
+                stime,
+                etime,
+                duration,
+                raw,
+            } => {
+                cli::commands::stat::run(
+                    &config, pcode, category, field, stime, etime, duration, raw,
+                )
+                .await
+            }
+            StatAction::Categories { pcode } => {
+                cli::commands::stat::categories(&config, pcode).await
+            }
+        },
+
+        Commands::Log { action } => match action {
+            LogAction::Search {
+                pcode,
+                keyword,
+                level,
+                category,
+                fields,
+                stime,
+                etime,
+                duration,
+                limit,
+                raw,
+            } => {
+                cli::commands::log::search(
+                    &config, pcode, keyword, level, category, fields, stime, etime, duration,
+                    limit, raw,
+                )
+                .await
+            }
+            LogAction::Categories => {
+                cli::commands::log::categories(&config).await
+            }
+        },
 
         Commands::Alert { action } => match action {
             AlertAction::List { pcode } => {
