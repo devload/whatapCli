@@ -114,6 +114,16 @@ enum Commands {
         category: Option<String>,
     },
 
+    /// Fetch current spot metrics (real-time counters)
+    Spot {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Filter specific metric keys (comma-separated, e.g. "cpu,tps,actx")
+        #[arg(long)]
+        keys: Option<String>,
+    },
+
     /// Manage metric alerts
     Alert {
         #[command(subcommand)]
@@ -488,6 +498,10 @@ async fn main() {
                 category,
             )
             .await
+        }
+
+        Commands::Spot { pcode, keys } => {
+            cli::commands::spot::run(&config, pcode, keys).await
         }
 
         Commands::Alert { action } => match action {

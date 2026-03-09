@@ -8,4 +8,5 @@ pub mod proguard;
 pub mod project;
 pub mod projects;
 pub mod sourcemaps;
+pub mod spot;
 pub mod whoami;
