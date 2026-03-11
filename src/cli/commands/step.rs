@@ -76,17 +76,17 @@ pub async fn resources(
     let resolved_pcode = client.resolve_pcode(pcode)?;
 
     // MXQL 쿼리 빌드
-    let mut mql = "CATEGORY rum_resource_each_page\nTAGLOAD\nSELECT [page_group, resource_url, resource_type, duration, size, status, is3rdParty, @timestamp]".to_string();
+    let mut mql = "CATEGORY rum_resource_each_page\nTAGLOAD\nSELECT [page_group, request_host, request_path, type, resource_duration, resource_size, is3rdParty, time]".to_string();
 
     let mut filters = Vec::new();
     if let Some(ref url) = page_url {
         filters.push(format!("page_group like '%{}%'", url));
     }
     if let Some(ref rtype) = resource_type {
-        filters.push(format!("resource_type == '{}'", rtype));
+        filters.push(format!("type == '{}'", rtype));
     }
     if let Some(threshold) = slow {
-        filters.push(format!("duration > {}", threshold));
+        filters.push(format!("resource_duration > {}", threshold));
     }
     if !filters.is_empty() {
         mql.push_str(&format!("\nFILTER {{{}}}", filters.join(" && ")));
@@ -128,17 +128,17 @@ pub async fn ajax(
     let client = WhatapClient::new(config.clone())?;
     let resolved_pcode = client.resolve_pcode(pcode)?;
 
-    let mut mql = "CATEGORY rum_ajax_each_page\nTAGLOAD\nSELECT [page_group, ajax_url, ajax_method, ajax_time, ajax_status, ajax_error_rate, ajax_count, @timestamp]".to_string();
+    let mut mql = "CATEGORY rum_ajax_each_page\nTAGLOAD\nSELECT [page_group, request_host, request_path, ajax_count, ajax_5xx_count, ajax_4xx_count, ajax_duration, time]".to_string();
 
     let mut filters = Vec::new();
     if let Some(ref url) = page_url {
         filters.push(format!("page_group like '%{}%'", url));
     }
     if error_only {
-        filters.push("ajax_error_rate > 0".to_string());
+        filters.push("ajax_5xx_count > 0".to_string());
     }
     if let Some(threshold) = slow {
-        filters.push(format!("ajax_time > {}", threshold));
+        filters.push(format!("ajax_duration > {}", threshold));
     }
     if !filters.is_empty() {
         mql.push_str(&format!("\nFILTER {{{}}}", filters.join(" && ")));
@@ -231,14 +231,14 @@ pub async fn pageload(
     let client = WhatapClient::new(config.clone())?;
     let resolved_pcode = client.resolve_pcode(pcode)?;
 
-    let mut mql = "CATEGORY rum_page_load_each_page\nTAGLOAD\nSELECT [page_group, pageLoadTime, backendTime, frontendTime, renderTime, ttfb, redirectTime, dnsTime, connectTime, sslTime, downloadTime, domInteractiveTime, domContentLoadedTime, @timestamp]".to_string();
+    let mut mql = "CATEGORY rum_page_load_each_page\nTAGLOAD\nSELECT [page_group, page_load_count, page_load_duration, page_load_backend_time, page_load_frontend_time, page_load_firstbyte_time, page_load_render_time, page_load_dns_time, page_load_connect_time, page_load_ssl_time, page_load_download_time, time]".to_string();
 
     let mut filters = Vec::new();
     if let Some(ref url) = page_url {
         filters.push(format!("page_group like '%{}%'", url));
     }
     if let Some(threshold) = slow {
-        filters.push(format!("pageLoadTime > {}", threshold));
+        filters.push(format!("page_load_duration > {}", threshold));
     }
     if !filters.is_empty() {
         mql.push_str(&format!("\nFILTER {{{}}}", filters.join(" && ")));
@@ -277,21 +277,24 @@ fn display_resource_results(result: &serde_json::Value, config: &ResolvedConfig)
 
     let mut rows: Vec<ResourceRow> = Vec::new();
     for rec in &records {
-        let url = get_str(rec, "resource_url").unwrap_or("-");
-        // 긴 URL 축약
-        let short_url = if url.len() > 60 {
-            format!("{}...{}", &url[..30], &url[url.len()-25..])
+        let page = get_str(rec, "page_group").unwrap_or("-");
+        let time_ms = get_f64(rec, "time").unwrap_or(0.0) as u64;
+        let host = get_str(rec, "request_host").unwrap_or("-");
+        let path = get_str(rec, "request_path").unwrap_or("-");
+        let url = format!("{}{}", host, path);
+        let short_url = if url.len() > 50 {
+            format!("{}...{}", &url[..25], &url[url.len()-20..])
         } else {
             url.to_string()
         };
 
         rows.push(ResourceRow {
-            page: truncate(get_str(rec, "page_group").unwrap_or("-"), 30),
-            resource_type: get_str(rec, "resource_type").unwrap_or("-").to_string(),
+            key: make_key(page, time_ms),
+            resource_type: get_str(rec, "type").unwrap_or("-").to_string(),
             url: short_url,
-            duration: get_f64(rec, "duration").map(format_duration_ms).unwrap_or("-".into()),
-            size: get_f64(rec, "size").map(|s| format_size(s as u64)).unwrap_or("-".into()),
-            status: get_str(rec, "status").unwrap_or("-").to_string(),
+            duration: get_f64(rec, "resource_duration").map(format_duration_ms).unwrap_or("-".into()),
+            size: get_f64(rec, "resource_size").map(|s| format_size(s as u64)).unwrap_or("-".into()),
+            is_3rd_party: get_str(rec, "is3rdParty").unwrap_or("-").to_string(),
         });
     }
     output::print_output(&rows, &config.output);
@@ -309,23 +312,31 @@ fn display_ajax_results(result: &serde_json::Value, config: &ResolvedConfig) -> 
 
     let mut rows: Vec<AjaxRow> = Vec::new();
     for rec in &records {
-        let url = get_str(rec, "ajax_url").unwrap_or("-");
-        let short_url = if url.len() > 50 {
-            format!("{}...{}", &url[..25], &url[url.len()-20..])
+        let page = get_str(rec, "page_group").unwrap_or("-");
+        let time_ms = get_f64(rec, "time").unwrap_or(0.0) as u64;
+        let host = get_str(rec, "request_host").unwrap_or("-");
+        let path = get_str(rec, "request_path").unwrap_or("-");
+        let url = format!("{}{}", host, path);
+        let short_url = if url.len() > 40 {
+            format!("{}...{}", &url[..20], &url[url.len()-15..])
         } else {
             url.to_string()
         };
 
+        let err_5xx = get_f64(rec, "ajax_5xx_count").unwrap_or(0.0) as i64;
+        let err_4xx = get_f64(rec, "ajax_4xx_count").unwrap_or(0.0) as i64;
+        let error_info = if err_5xx > 0 || err_4xx > 0 {
+            format!("5xx:{} 4xx:{}", err_5xx, err_4xx)
+        } else {
+            "-".to_string()
+        };
+
         rows.push(AjaxRow {
-            page: truncate(get_str(rec, "page_group").unwrap_or("-"), 25),
-            method: get_str(rec, "ajax_method").unwrap_or("GET").to_string(),
+            key: make_key(page, time_ms),
             url: short_url,
-            time: get_f64(rec, "ajax_time").map(format_duration_ms).unwrap_or("-".into()),
-            status: get_str(rec, "ajax_status").unwrap_or("-").to_string(),
-            error_rate: get_f64(rec, "ajax_error_rate")
-                .map(|r| format!("{:.1}%", r)).unwrap_or("-".into()),
-            count: get_f64(rec, "ajax_count")
-                .map(|c| format!("{}", c as i64)).unwrap_or("-".into()),
+            count: get_f64(rec, "ajax_count").map(|c| format!("{}", c as i64)).unwrap_or("-".into()),
+            duration: get_f64(rec, "ajax_duration").map(format_duration_ms).unwrap_or("-".into()),
+            errors: error_info,
         });
     }
     output::print_output(&rows, &config.output);
@@ -343,11 +354,14 @@ fn display_error_results(result: &serde_json::Value, config: &ResolvedConfig) ->
 
     let mut rows: Vec<ErrorRow> = Vec::new();
     for rec in &records {
+        let page = get_str(rec, "page_group").unwrap_or("-");
+        let time_ms = get_f64(rec, "time").unwrap_or(0.0) as u64;
+
         rows.push(ErrorRow {
-            page: truncate(get_str(rec, "page_group").unwrap_or("-"), 30),
+            key: make_key(page, time_ms),
             error_type: get_str(rec, "error_type").unwrap_or("-").to_string(),
-            message: truncate(get_str(rec, "error_message").unwrap_or("-"), 50),
-            count: get_f64(rec, "count").map(|c| format!("{}", c as i64)).unwrap_or("-".into()),
+            message: truncate(get_str(rec, "error_message").unwrap_or("-"), 40),
+            count: get_f64(rec, "error_count").map(|c| format!("{}", c as i64)).unwrap_or("-".into()),
             browser: get_str(rec, "browser").unwrap_or("-").to_string(),
             device: get_str(rec, "device").unwrap_or("-").to_string(),
         });
@@ -368,22 +382,24 @@ fn display_pageload_results(result: &serde_json::Value, config: &ResolvedConfig)
     // 워터폴 스타일 표시
     for rec in &records {
         let page = get_str(rec, "page_group").unwrap_or("unknown");
-        let total = get_f64(rec, "pageLoadTime").unwrap_or(0.0);
+        let time_ms = get_u64(rec, "time").unwrap_or(0);
+        let total = get_f64(rec, "page_load_duration").unwrap_or(0.0);
+        let count = get_f64(rec, "page_load_count").unwrap_or(1.0) as i64;
+        let key = make_key(page, time_ms);
 
-        println!("\n  {} (total: {})", page, format_duration_ms(total));
+        println!("\n  {} (count: {}, total: {})", key, count, format_duration_ms(total));
         println!("  {}", "-".repeat(60));
 
         // 타이밍 분해
         let phases = [
-            ("Redirect", get_f64(rec, "redirectTime")),
-            ("DNS", get_f64(rec, "dnsTime")),
-            ("Connect", get_f64(rec, "connectTime")),
-            ("SSL", get_f64(rec, "sslTime")),
-            ("TTFB", get_f64(rec, "ttfb")),
-            ("Download", get_f64(rec, "downloadTime")),
-            ("Backend", get_f64(rec, "backendTime")),
-            ("Frontend", get_f64(rec, "frontendTime")),
-            ("Render", get_f64(rec, "renderTime")),
+            ("DNS", get_f64(rec, "page_load_dns_time")),
+            ("Connect", get_f64(rec, "page_load_connect_time")),
+            ("SSL", get_f64(rec, "page_load_ssl_time")),
+            ("TTFB", get_f64(rec, "page_load_firstbyte_time")),
+            ("Download", get_f64(rec, "page_load_download_time")),
+            ("Backend", get_f64(rec, "page_load_backend_time")),
+            ("Frontend", get_f64(rec, "page_load_frontend_time")),
+            ("Render", get_f64(rec, "page_load_render_time")),
         ];
 
         let max_val = phases.iter()
@@ -442,6 +458,20 @@ fn get_f64(val: &serde_json::Value, key: &str) -> Option<f64> {
     val.get(key).and_then(|v| v.as_f64())
 }
 
+fn get_u64(val: &serde_json::Value, key: &str) -> Option<u64> {
+    val.get(key).and_then(|v| {
+        if let Some(n) = v.as_u64() {
+            Some(n)
+        } else if let Some(n) = v.as_f64() {
+            Some(n as u64)
+        } else if let Some(n) = v.as_i64() {
+            Some(n as u64)
+        } else {
+            None
+        }
+    })
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max { s.to_string() }
     else { format!("{}...", &s[..max.saturating_sub(3)]) }
@@ -455,10 +485,16 @@ fn format_size(bytes: u64) -> String {
 
 // ── Table Row Structs ──
 
+fn make_key(page: &str, time_ms: u64) -> String {
+    // time 하위 6자리로 키 생성 (예: /cart@123456)
+    let time_suffix = time_ms % 1_000_000;
+    format!("{}@{}", page, time_suffix)
+}
+
 #[derive(Serialize, Tabled)]
 struct ResourceRow {
-    #[tabled(rename = "Page")]
-    page: String,
+    #[tabled(rename = "Key")]
+    key: String,
     #[tabled(rename = "Type")]
     resource_type: String,
     #[tabled(rename = "URL")]
@@ -467,32 +503,28 @@ struct ResourceRow {
     duration: String,
     #[tabled(rename = "Size")]
     size: String,
-    #[tabled(rename = "Status")]
-    status: String,
+    #[tabled(rename = "3rd")]
+    is_3rd_party: String,
 }
 
 #[derive(Serialize, Tabled)]
 struct AjaxRow {
-    #[tabled(rename = "Page")]
-    page: String,
-    #[tabled(rename = "Method")]
-    method: String,
+    #[tabled(rename = "Key")]
+    key: String,
     #[tabled(rename = "URL")]
     url: String,
-    #[tabled(rename = "Time")]
-    time: String,
-    #[tabled(rename = "Status")]
-    status: String,
-    #[tabled(rename = "Error%")]
-    error_rate: String,
     #[tabled(rename = "Count")]
     count: String,
+    #[tabled(rename = "Duration")]
+    duration: String,
+    #[tabled(rename = "Errors")]
+    errors: String,
 }
 
 #[derive(Serialize, Tabled)]
 struct ErrorRow {
-    #[tabled(rename = "Page")]
-    page: String,
+    #[tabled(rename = "Key")]
+    key: String,
     #[tabled(rename = "Error Type")]
     error_type: String,
     #[tabled(rename = "Message")]

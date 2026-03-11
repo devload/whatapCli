@@ -7,6 +7,10 @@ A command-line interface for the [WhatAp](https://whatap.io) monitoring platform
 - **Authentication**: Email/password login (via mobile API) and API key modes
 - **Project Management**: List and inspect monitoring projects
 - **MXQL Queries**: Execute MXQL queries via yard API with multiple input modes
+- **Real-time Metrics**: Fetch current spot metrics (TPS, CPU, memory, etc.)
+- **Time-series Stats**: Query historical metric statistics
+- **Log Search**: Search application logs with filtering
+- **Browser RUM**: Step-by-step analysis (page load, AJAX, resources, errors) and trace correlation
 - **Symbol Upload**: Upload sourcemaps, ProGuard mappings, and dSYM files
 - **Alert Management**: Create, list, enable/disable, export/import metric alerts
 - **MCP-Ready**: Designed for integration with MCP servers for AI-driven query generation
@@ -56,6 +60,88 @@ whatap projects --filter MOBILE          # Filter by platform
 whatap info <pcode>                      # Project details
 ```
 
+### Real-time Metrics (Spot)
+
+```bash
+# All metrics
+whatap spot --pcode 12345
+
+# Specific metrics
+whatap spot --pcode 12345 --keys cpu,tps,resp_time
+
+# JSON output
+whatap spot --pcode 12345 --json
+```
+
+### Time-series Statistics (Stat)
+
+```bash
+# Query TPS trend
+whatap stat query --pcode 12345 --category app_counter --field tps --duration 1h
+
+# Response time trend
+whatap stat query --pcode 12345 --category app_counter --field resp_time --duration 30m
+
+# List available categories
+whatap stat categories --pcode 12345
+```
+
+### Log Search
+
+```bash
+# Recent logs
+whatap log search --pcode 12345 --duration 10m
+
+# Search with keyword
+whatap log search --pcode 12345 --keyword "error" --duration 1h
+
+# Filter by level
+whatap log search --pcode 12345 --level ERROR --duration 1h
+
+# List log categories
+whatap log categories --pcode 12345
+```
+
+### Browser RUM Analysis
+
+#### Step Commands (Individual Data)
+
+```bash
+# Page load analysis
+whatap step pageload --pcode 12345 --duration 1h
+whatap step pageload --pcode 12345 --slow 3000 --duration 1h
+
+# AJAX requests
+whatap step ajax --pcode 12345 --duration 1h
+whatap step ajax --pcode 12345 --errors --duration 1h
+
+# Resources
+whatap step resources --pcode 12345 --duration 1h
+whatap step resources --pcode 12345 --type script --duration 1h
+
+# JavaScript errors
+whatap step errors --pcode 12345 --duration 1h
+whatap step errors --pcode 12345 --type TypeError --duration 1h
+```
+
+#### Trace Commands (Correlated Data)
+
+```bash
+# Summary only
+whatap trace /products --pcode 12345 --summary
+
+# Specific category
+whatap trace /products --pcode 12345 --only ajax
+whatap trace /products --pcode 12345 --only errors
+
+# Slow items only
+whatap trace /products --pcode 12345 --slow 2000
+
+# Output formats
+whatap trace /products --pcode 12345 --json
+whatap trace /products --pcode 12345 --csv
+```
+
 ### MXQL Queries
 
 Execute MXQL queries against the WhatAp yard API.
@@ -81,19 +167,6 @@ whatap mxql --json --input-json '{"pcode":45452,"mql":"CATEGORY mobile_crash\nTA
 # With time range and limit
 whatap mxql --pcode 45452 --stime 1769000000000 --etime 1772100000000 --limit 50 --category mobile_crash
 ```
-
-**Options:**
-
-| Option | Description |
-|--------|-------------|
-| `--pcode <PCODE>` | Project code |
-| `--stime <MS>` | Start time in epoch ms (default: 24h ago) |
-| `--etime <MS>` | End time in epoch ms (default: now) |
-| `--limit <N>` | Max results (default: 100) |
-| `--category <CAT>` | Shorthand for `CATEGORY <CAT>\nTAGLOAD\nSELECT` |
-| `-f, --file <PATH>` | Read MXQL from file |
-| `--input-json <JSON>` | Full query params as JSON (for MCP) |
-| `--json` | Output as JSON |
 
 ### Alert Management
 
@@ -161,6 +234,20 @@ Project-level config can be placed in `.whataprc.yml`:
 pcode: 12345
 server: https://service.whatap.io
 ```
+
+## Documentation
+
+### Usage Guides (Command Reference)
+- [브라우저 사용가이드](브라우저_사용가이드.md) - Browser RUM command options
+- [모바일 사용가이드](모바일_사용가이드.md) - Mobile app command options
+- [APM 사용가이드](APM_사용가이드.md) - APM server command options
+- [DB 사용가이드](DB_사용가이드.md) - Database monitoring command options
+
+### Analysis Guides (Troubleshooting)
+- [브라우저 분석가이드](브라우저_분석가이드.md) - Page load, JS errors, AJAX issues
+- [모바일 분석가이드](모바일_분석가이드.md) - Crash, ANR, app startup issues
+- [APM 분석가이드](APM_분석가이드.md) - TPS, response time, CPU/memory issues
+- [DB 분석가이드](DB_분석가이드.md) - Slow queries, locks, connection pool issues
 
 ## MCP Integration
 

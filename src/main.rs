@@ -142,6 +142,36 @@ enum Commands {
         action: StepAction,
     },
 
+    /// Trace correlated data using key from step commands
+    Trace {
+        /// Key from step command output (e.g. /cart@123456)
+        key: String,
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Duration lookback (e.g. "1h", "30m", "1d")
+        #[arg(short, long, default_value = "1h")]
+        duration: String,
+        /// Show only specific category (pageload, ajax, resources, errors)
+        #[arg(long)]
+        only: Option<String>,
+        /// Show only slow items (duration > threshold ms)
+        #[arg(long)]
+        slow: Option<u64>,
+        /// Show summary only (counts, no details)
+        #[arg(long)]
+        summary: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Output as CSV
+        #[arg(long)]
+        csv: bool,
+        /// Output raw JSON from API
+        #[arg(long)]
+        raw: bool,
+    },
+
     /// Manage metric alerts
     Alert {
         #[command(subcommand)]
@@ -789,6 +819,10 @@ async fn main() {
                     &config, pcode, page, slow, stime, etime, duration, limit, raw,
                 ).await
             }
+        },
+
+        Commands::Trace { key, pcode, duration, only, slow, summary, json, csv, raw } => {
+            cli::commands::trace::run(&config, pcode, &key, &duration, only.as_deref(), slow, summary, json, csv, raw).await
         },
 
         Commands::Alert { action } => match action {

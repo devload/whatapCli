@@ -12,4 +12,5 @@ pub mod sourcemaps;
 pub mod spot;
 pub mod stat;
 pub mod step;
+pub mod trace;
 pub mod whoami;
