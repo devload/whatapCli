@@ -8,6 +8,7 @@ pub mod mxql;
 pub mod proguard;
 pub mod project;
 pub mod projects;
+pub mod snapshot;
 pub mod sourcemaps;
 pub mod spot;
 pub mod stat;

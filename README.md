@@ -57,8 +57,34 @@ whatap whoami                            # Show current user
 ```bash
 whatap projects                          # List all projects
 whatap projects --filter MOBILE          # Filter by platform
-whatap info <pcode>                      # Project details
+whatap info <pcode>                      # Project details with baseline and thresholds
+whatap info <pcode> --json               # JSON output for AI analysis
 ```
+
+### AI-Ready Analysis Commands
+
+These commands provide consolidated data for AI-based analysis.
+
+```bash
+# Project context with baseline metrics and thresholds
+whatap info <pcode> --json
+
+# Integrated snapshot combining spot metrics, time-series, and top issues
+whatap snapshot --pcode <pcode> --json
+whatap snapshot --pcode <pcode> --duration 24h --json
+```
+
+**Snapshot output includes:**
+- Project info (name, platform, environment)
+- Real-time spot metrics
+- Time-series data (TPS, response time, error rate)
+- Top issues (slow queries, slow APIs, recent errors)
+
+**Info output includes:**
+- Project context (name, platform, environment)
+- Baseline statistics (7-day avg, p50, p95 for key metrics)
+- Platform-specific thresholds
+- Available categories for the project type
 
 ### Real-time Metrics (Spot)
 

@@ -9,9 +9,10 @@ use crate::types::config::ResolvedConfig;
 /// Fetch current spot metrics via Open API
 pub async fn run(config: &ResolvedConfig, pcode: Option<i64>, keys: Option<String>) -> Result<()> {
     let client = WhatapClient::new(config.clone())?;
-    let pcode = client.resolve_pcode(pcode)?;
+    let resolved_pcode = client.resolve_pcode(pcode)?;
 
     let path = format!("/open/api/json/spot");
+    // Spot API uses cookie auth, not pcode header
     let resp = client.get(&path).await?;
     let body = resp.text().await?;
     let data: serde_json::Value = serde_json::from_str(&body)?;
@@ -75,7 +76,7 @@ pub async fn run(config: &ResolvedConfig, pcode: Option<i64>, keys: Option<Strin
         if rows.is_empty() {
             output::warn("No spot metrics available. Check pcode and API token.");
         } else {
-            output::info(&format!("Spot metrics for pcode {} ({} fields)", pcode, rows.len()), config.quiet);
+            output::info(&format!("Spot metrics for pcode {} ({} fields)", resolved_pcode, rows.len()), config.quiet);
             output::print_output(&rows, &config.output);
         }
     }

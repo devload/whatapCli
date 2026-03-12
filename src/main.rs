@@ -124,6 +124,16 @@ enum Commands {
         keys: Option<String>,
     },
 
+    /// Fetch integrated analysis snapshot for AI (spot + metrics + issues)
+    Snapshot {
+        /// Project code
+        #[arg(long)]
+        pcode: Option<i64>,
+        /// Duration lookback (e.g. "1h", "30m", "1d")
+        #[arg(short, long, default_value = "1h")]
+        duration: String,
+    },
+
     /// Query time-series metric statistics
     Stat {
         #[command(subcommand)]
@@ -744,6 +754,10 @@ async fn main() {
 
         Commands::Spot { pcode, keys } => {
             cli::commands::spot::run(&config, pcode, keys).await
+        }
+
+        Commands::Snapshot { pcode, duration } => {
+            cli::commands::snapshot::run(&config, pcode, Some(duration)).await
         }
 
         Commands::Stat { action } => match action {

@@ -34,12 +34,12 @@ impl WhatapClient {
     }
 
     /// Get authenticated headers
-    fn auth_headers(&self) -> Result<HeaderMap> {
+    fn auth_headers(&self, pcode: Option<i64>) -> Result<HeaderMap> {
         let creds = self
             .creds
             .as_ref()
             .ok_or(CliError::NotAuthenticated)?;
-        auth::build_auth_headers(creds)
+        auth::build_auth_headers(creds, pcode)
     }
 
     /// Get the server URL (from creds if available, otherwise config)
@@ -64,8 +64,13 @@ impl WhatapClient {
 
     /// GET request with authentication
     pub async fn get(&self, path: &str) -> Result<reqwest::Response> {
+        self.get_with_pcode(path, None).await
+    }
+
+    /// GET request with authentication and optional pcode
+    pub async fn get_with_pcode(&self, path: &str, pcode: Option<i64>) -> Result<reqwest::Response> {
         let url = format!("{}{}", self.server(), path);
-        let headers = self.auth_headers()?;
+        let headers = self.auth_headers(pcode)?;
         let resp = self
             .http
             .get(&url)
@@ -84,7 +89,7 @@ impl WhatapClient {
         body: &T,
     ) -> Result<reqwest::Response> {
         let url = format!("{}{}", self.server(), path);
-        let headers = self.auth_headers()?;
+        let headers = self.auth_headers(None)?;
         let resp = self
             .http
             .post(&url)
@@ -104,7 +109,7 @@ impl WhatapClient {
         form: reqwest::multipart::Form,
     ) -> Result<reqwest::Response> {
         let url = format!("{}{}", self.server(), path);
-        let headers = self.auth_headers()?;
+        let headers = self.auth_headers(None)?;
         let resp = self
             .http
             .post(&url)
@@ -124,7 +129,7 @@ impl WhatapClient {
         params: &[(&str, &str)],
     ) -> Result<reqwest::Response> {
         let url = format!("{}{}", self.server(), path);
-        let headers = self.auth_headers()?;
+        let headers = self.auth_headers(None)?;
         let resp = self
             .http
             .post(&url)

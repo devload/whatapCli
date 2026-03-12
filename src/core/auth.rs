@@ -217,7 +217,7 @@ pub async fn login_email_password(
 }
 
 /// Build auth headers for API requests
-pub fn build_auth_headers(creds: &Credentials) -> Result<HeaderMap> {
+pub fn build_auth_headers(creds: &Credentials, pcode: Option<i64>) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     match creds.auth_mode {
         AuthMode::ApiKey => {
@@ -229,7 +229,7 @@ pub fn build_auth_headers(creds: &Credentials) -> Result<HeaderMap> {
                 "X-WhaTap-Token",
                 HeaderValue::from_str(api_key)?,
             );
-            if let Some(pcode) = creds.pcode {
+            if let Some(pcode) = pcode.or(creds.pcode) {
                 headers.insert(
                     "X-WhaTap-Pcode",
                     HeaderValue::from_str(&pcode.to_string())?,
@@ -245,6 +245,12 @@ pub fn build_auth_headers(creds: &Credentials) -> Result<HeaderMap> {
                 "x-whatap-token",
                 HeaderValue::from_str(&session.api_token)?,
             );
+            if let Some(pcode) = pcode.or(creds.pcode) {
+                headers.insert(
+                    "x-whatap-pcode",
+                    HeaderValue::from_str(&pcode.to_string())?,
+                );
+            }
             if !session.whatap_cookie.is_empty() {
                 let cookie = format!("WHATAP={}", session.whatap_cookie);
                 headers.insert(COOKIE, HeaderValue::from_str(&cookie)?);
