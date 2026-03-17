@@ -1,7 +1,7 @@
 use colored::Colorize;
 use tabled::{Table, Tabled};
 
-/// Print data as table, JSON, or CSV based on format
+/// Print data as table, JSON, CSV, or Markdown based on format
 pub fn print_output<T: serde::Serialize + Tabled>(data: &[T], format: &str) {
     match format {
         "json" => {
@@ -32,6 +32,13 @@ pub fn print_output<T: serde::Serialize + Tabled>(data: &[T], format: &str) {
                 }
             }
         }
+        "markdown" => {
+            if data.is_empty() {
+                println!("No data found.");
+                return;
+            }
+            print_markdown_table(data);
+        }
         _ => {
             if data.is_empty() {
                 println!("No data found.");
@@ -40,6 +47,49 @@ pub fn print_output<T: serde::Serialize + Tabled>(data: &[T], format: &str) {
             let table = Table::new(data).to_string();
             println!("{}", table);
         }
+    }
+}
+
+/// Print data as a GitHub-flavored Markdown table
+fn print_markdown_table<T: serde::Serialize + Tabled>(data: &[T]) {
+    // Use tabled to render, then parse the ASCII table into markdown
+    let table = Table::new(data).to_string();
+    let lines: Vec<&str> = table.lines().collect();
+
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    for line in &lines {
+        let trimmed = line.trim_matches(|c| c == '│' || c == '┌' || c == '┐' || c == '└' || c == '┘' || c == '├' || c == '┤');
+        if trimmed.contains('─') || trimmed.contains('┼') {
+            continue;
+        }
+        let cells: Vec<String> = trimmed
+            .split('│')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !cells.is_empty() {
+            rows.push(cells);
+        }
+    }
+
+    if rows.is_empty() {
+        return;
+    }
+
+    // Header row
+    let header = &rows[0];
+    println!("| {} |", header.join(" | "));
+
+    // Separator row with alignment
+    let separators: Vec<String> = header
+        .iter()
+        .map(|_| "---".to_string())
+        .collect();
+    println!("| {} |", separators.join(" | "));
+
+    // Data rows
+    for row in &rows[1..] {
+        println!("| {} |", row.join(" | "));
     }
 }
 

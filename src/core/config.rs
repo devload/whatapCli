@@ -66,6 +66,7 @@ pub fn resolve_config(
     profile: &str,
     server_override: Option<&str>,
     json: bool,
+    markdown: bool,
     quiet: bool,
     verbose: bool,
     no_color: bool,
@@ -104,11 +105,14 @@ pub fn resolve_config(
         pcode,
         output: if json {
             "json".to_string()
+        } else if markdown {
+            "markdown".to_string()
         } else {
             global.output
         },
         timeout: global.timeout,
         json,
+        markdown,
         quiet,
         verbose,
         no_color,

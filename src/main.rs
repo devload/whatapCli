@@ -15,6 +15,10 @@ struct Cli {
     #[arg(long, global = true)]
     json: bool,
 
+    /// Output as Markdown (optimized for Claude Code chat visualization)
+    #[arg(long, global = true)]
+    markdown: bool,
+
     /// Suppress non-essential output
     #[arg(short, long, global = true)]
     quiet: bool,
@@ -668,6 +672,7 @@ async fn main() {
         &cli.profile,
         cli.server.as_deref(),
         cli.json,
+        cli.markdown,
         cli.quiet,
         cli.verbose,
         cli.no_color,

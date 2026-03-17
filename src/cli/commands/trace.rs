@@ -165,17 +165,17 @@ pub async fn run(
     }
     
     if show_ajax {
-        let result = trace_ajax(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &mut summary_data).await?;
+        let result = trace_ajax(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &config.output, &mut summary_data).await?;
         found_any |= result;
     }
     
     if show_resources {
-        let result = trace_resources(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &mut summary_data).await?;
+        let result = trace_resources(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &config.output, &mut summary_data).await?;
         found_any |= result;
     }
     
     if show_errors {
-        let result = trace_errors(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &mut summary_data).await?;
+        let result = trace_errors(&client, resolved_pcode, &page_group, stime, etime, slow, summary, json, csv, &config.output, &mut summary_data).await?;
         found_any |= result;
     }
     
@@ -384,6 +384,7 @@ async fn trace_ajax(
     summary_only: bool,
     json: bool,
     csv: bool,
+    output_format: &str,
     summary_data: &mut TraceSummary,
 ) -> Result<bool> {
     let result = fetch_ajax(client, pcode, page_group, stime, etime).await?;
@@ -471,7 +472,7 @@ async fn trace_ajax(
         return Ok(true);
     }
     
-    output::print_output(&rows, "table");
+    output::print_output(&rows, output_format);
     Ok(true)
 }
 
@@ -485,6 +486,7 @@ async fn trace_resources(
     summary_only: bool,
     json: bool,
     csv: bool,
+    output_format: &str,
     summary_data: &mut TraceSummary,
 ) -> Result<bool> {
     let result = fetch_resources(client, pcode, page_group, stime, etime).await?;
@@ -568,7 +570,7 @@ async fn trace_resources(
         return Ok(true);
     }
     
-    output::print_output(&rows, "table");
+    output::print_output(&rows, output_format);
     Ok(true)
 }
 
@@ -582,6 +584,7 @@ async fn trace_errors(
     summary_only: bool,
     json: bool,
     csv: bool,
+    output_format: &str,
     summary_data: &mut TraceSummary,
 ) -> Result<bool> {
     let _ = slow; // errors don't have duration
@@ -649,7 +652,7 @@ async fn trace_errors(
         return Ok(true);
     }
     
-    output::print_output(&rows, "table");
+    output::print_output(&rows, output_format);
     Ok(true)
 }
 
