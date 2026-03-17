@@ -58,9 +58,11 @@ JSON 결과를 파싱한 후 다음 형식으로 대화에 렌더링:
 
 **Mermaid 다이어그램** - 분포/비율:
 ```mermaid
-pie title 에러 유형 분포
+pie title Error Type Distribution
     "TypeError" : 45
     "NetworkError" : 23
+    "SyntaxError" : 12
+    "Other" : 8
 ```
 
 ### Step 3: 분석 시나리오별 명령어 조합
