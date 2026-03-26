@@ -216,6 +216,54 @@ pub async fn login_email_password(
     })
 }
 
+/// Fetch per-project API tokens using the user's session token
+pub async fn fetch_project_tokens(
+    server: &str,
+    session: &SessionData,
+) -> Result<std::collections::HashMap<i64, String>> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+
+    let url = format!("{}/open/api/json/projects", server);
+    let resp = client
+        .get(&url)
+        .header(USER_AGENT, CLI_USER_AGENT)
+        .header("x-whatap-token", &session.api_token)
+        .header(
+            COOKIE,
+            format!("WHATAP={}", session.whatap_cookie),
+        )
+        .send()
+        .await
+        .context("Failed to fetch project list")?;
+
+    let body = resp.text().await?;
+    let data: serde_json::Value = serde_json::from_str(&body)?;
+
+    let mut tokens = std::collections::HashMap::new();
+
+    // Response can be {"data": [...]} or direct array
+    let projects = data
+        .get("data")
+        .and_then(|d| d.as_array())
+        .or_else(|| data.as_array());
+
+    if let Some(arr) = projects {
+        for item in arr {
+            if let (Some(pcode), Some(token)) = (
+                item.get("projectCode").and_then(|v| v.as_i64()),
+                item.get("apiToken").and_then(|v| v.as_str()),
+            ) {
+                tokens.insert(pcode, token.to_string());
+            }
+        }
+    }
+
+    Ok(tokens)
+}
+
 /// Build auth headers for API requests
 pub fn build_auth_headers(creds: &Credentials) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();

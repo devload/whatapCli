@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credentials {
@@ -12,6 +13,9 @@ pub struct Credentials {
     pub pcode: Option<i64>,
     /// Server URL
     pub server: Option<String>,
+    /// Per-project API tokens (pcode -> apiToken), fetched at login
+    #[serde(default)]
+    pub project_tokens: HashMap<i64, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]

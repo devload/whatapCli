@@ -135,7 +135,7 @@ pub async fn upload_files(
             symbol_type.upload_path()
         );
 
-        client.post_multipart(&upload_path, form).await?;
+        client.post_multipart_with_pcode(&upload_path, form, pcode).await?;
         uploaded += batch.len();
 
         if let Some(pb) = &pb {
@@ -161,7 +161,7 @@ pub async fn list_files(
         pcode,
         symbol_type.list_path()
     );
-    let resp = client.get(&path).await?;
+    let resp = client.get_with_pcode(&path, pcode).await?;
     let body = resp.text().await?;
 
     // Try parsing as SymbolListResponse
@@ -199,7 +199,7 @@ pub async fn delete_files(
         params.push(("version", v));
     }
 
-    client.post_form(&path, &params).await?;
+    client.post_form_with_pcode(&path, &params, pcode).await?;
     Ok(())
 }
 

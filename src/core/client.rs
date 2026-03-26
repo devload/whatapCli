@@ -77,6 +77,111 @@ impl WhatapClient {
         Self::check_response(resp).await
     }
 
+    /// Build auth headers with pcode for Open API calls
+    /// For email/password mode, includes web session cookies
+    fn auth_headers_with_pcode(&self, pcode: i64) -> Result<HeaderMap> {
+        let creds = self.creds.as_ref().ok_or(CliError::NotAuthenticated)?;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "X-WhaTap-Pcode",
+            HeaderValue::from_str(&pcode.to_string())?,
+        );
+
+        match &creds.auth_mode {
+            crate::types::auth::AuthMode::ApiKey => {
+                let api_key = creds.api_key.as_ref().ok_or(CliError::NotAuthenticated)?;
+                headers.insert("X-WhaTap-Token", HeaderValue::from_str(api_key)?);
+            }
+            crate::types::auth::AuthMode::EmailPassword => {
+                // Use per-project API token if available (required for Open API)
+                if let Some(project_token) = creds.project_tokens.get(&pcode) {
+                    headers.insert(
+                        "X-WhaTap-Token",
+                        HeaderValue::from_str(project_token)?,
+                    );
+                } else {
+                    // Fallback to session token + cookies
+                    let session = creds.session.as_ref().ok_or(CliError::NotAuthenticated)?;
+                    let mut cookie_parts = Vec::new();
+                    if !session.jsessionid.is_empty() {
+                        cookie_parts.push(format!("JSESSIONID={}", session.jsessionid));
+                    }
+                    if !session.wa_cookie.is_empty() {
+                        cookie_parts.push(format!("wa={}", session.wa_cookie));
+                    }
+                    if !session.whatap_cookie.is_empty() {
+                        cookie_parts.push(format!("WHATAP={}", session.whatap_cookie));
+                    }
+                    if !cookie_parts.is_empty() {
+                        headers.insert(COOKIE, HeaderValue::from_str(&cookie_parts.join("; "))?);
+                    }
+                    headers.insert(
+                        "x-whatap-token",
+                        HeaderValue::from_str(&session.api_token)?,
+                    );
+                }
+            }
+        }
+        Ok(headers)
+    }
+
+    /// GET request with authentication + explicit pcode header
+    pub async fn get_with_pcode(&self, path: &str, pcode: i64) -> Result<reqwest::Response> {
+        let url = format!("{}{}", self.server(), path);
+        let headers = self.auth_headers_with_pcode(pcode)?;
+        let resp = self
+            .http
+            .get(&url)
+            .headers(headers)
+            .send()
+            .await
+            .with_context(|| format!("Request failed: GET {}", url))?;
+
+        Self::check_response(resp).await
+    }
+
+    /// POST multipart form with pcode header
+    pub async fn post_multipart_with_pcode(
+        &self,
+        path: &str,
+        form: reqwest::multipart::Form,
+        pcode: i64,
+    ) -> Result<reqwest::Response> {
+        let url = format!("{}{}", self.server(), path);
+        let headers = self.auth_headers_with_pcode(pcode)?;
+        let resp = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .multipart(form)
+            .send()
+            .await
+            .with_context(|| format!("Request failed: POST {}", url))?;
+
+        Self::check_response(resp).await
+    }
+
+    /// POST form-urlencoded with pcode header
+    pub async fn post_form_with_pcode(
+        &self,
+        path: &str,
+        params: &[(&str, &str)],
+        pcode: i64,
+    ) -> Result<reqwest::Response> {
+        let url = format!("{}{}", self.server(), path);
+        let headers = self.auth_headers_with_pcode(pcode)?;
+        let resp = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .form(params)
+            .send()
+            .await
+            .with_context(|| format!("Request failed: POST {}", url))?;
+
+        Self::check_response(resp).await
+    }
+
     /// POST request with JSON body
     pub async fn post_json<T: serde::Serialize>(
         &self,

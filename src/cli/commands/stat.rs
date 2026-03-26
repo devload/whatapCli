@@ -62,7 +62,7 @@ pub async fn run(
     raw: bool,
 ) -> Result<()> {
     let client = WhatapClient::new(config.clone())?;
-    let _pcode = client.resolve_pcode(pcode)?;
+    let pcode = client.resolve_pcode(pcode)?;
 
     // Resolve time range
     let now = now_millis();
@@ -89,7 +89,7 @@ pub async fn run(
         eprintln!("Time range: {} ~ {} ({} ms)", resolved_stime, resolved_etime, resolved_etime - resolved_stime);
     }
 
-    let resp = client.get(&path).await?;
+    let resp = client.get_with_pcode(&path, pcode).await?;
     let body = resp.text().await?;
     let data: serde_json::Value = serde_json::from_str(&body)?;
 
@@ -173,7 +173,7 @@ pub async fn run(
 /// List available stat categories and their fields
 pub async fn categories(config: &ResolvedConfig, pcode: Option<i64>) -> Result<()> {
     let client = WhatapClient::new(config.clone())?;
-    let _pcode = client.resolve_pcode(pcode)?;
+    let pcode = client.resolve_pcode(pcode)?;
 
     // Common categories and fields (built-in reference)
     let cats = vec![

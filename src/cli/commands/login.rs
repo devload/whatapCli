@@ -26,6 +26,7 @@ pub async fn run(
             api_key: Some(key),
             pcode,
             server: Some(server_url.to_string()),
+            project_tokens: std::collections::HashMap::new(),
         };
         auth::save_credentials(&config.profile, &creds)?;
         output::success(&format!(
@@ -62,12 +63,31 @@ pub async fn run(
 
     let session = auth::login_email_password(server_url, &email, &password).await?;
 
+    // Fetch per-project API tokens for Open API access
+    let project_tokens = match auth::fetch_project_tokens(server_url, &session).await {
+        Ok(tokens) => {
+            if !config.quiet {
+                output::info(&format!("  Cached {} project token(s)", tokens.len()), false);
+            }
+            tokens
+        }
+        Err(e) => {
+            eprintln!(
+                "{} Failed to fetch project tokens (Open API may be limited): {}",
+                colored::Colorize::yellow("!"),
+                e
+            );
+            std::collections::HashMap::new()
+        }
+    };
+
     let creds = Credentials {
         auth_mode: AuthMode::EmailPassword,
         session: Some(session),
         api_key: None,
         pcode,
         server: Some(server_url.to_string()),
+        project_tokens,
     };
     auth::save_credentials(&config.profile, &creds)?;
 

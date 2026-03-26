@@ -12,7 +12,7 @@ pub async fn run(config: &ResolvedConfig, pcode: Option<i64>, keys: Option<Strin
     let pcode = client.resolve_pcode(pcode)?;
 
     let path = format!("/open/api/json/spot");
-    let resp = client.get(&path).await?;
+    let resp = client.get_with_pcode(&path, pcode).await?;
     let body = resp.text().await?;
     let data: serde_json::Value = serde_json::from_str(&body)?;
 
